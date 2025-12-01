@@ -1,0 +1,17 @@
+# IDE (IntelliJ IDEA)
+.idea/
+*.iml
+*.iws
+
+# Node.js dependencies
+node_modules/
+
+# Carpeta de pruebas local (tu código temporal o no deseado)
+prueba_k6/
+
+# Logs
+*.log
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
