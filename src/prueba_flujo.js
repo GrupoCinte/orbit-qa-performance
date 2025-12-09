@@ -4,7 +4,7 @@ import { SharedArray } from 'k6/data';
 
 // Usuarios
 const users = new SharedArray('users', function() {
-    return open('users.csv').split('\n').slice(1)
+    return open('../resources/payloads/users.csv').split('\n').slice(1)
         .filter(line => line.trim())
         .map(line => {
             const parts = line.split(';');
@@ -77,10 +77,9 @@ export default function () {
             check(postRes, {
                 'status 200': r => r.status === 200,
             });
-
+            sleep(2);
         });
 
-        sleep(2);
     //cerrar sesion
     group('logout', function() {
         const logoutUrl = 'http://localhost:8080/Integracion-areas/App/Provisiones/Flujo/index.xhtml';
@@ -96,8 +95,8 @@ export default function () {
         check(logoutRes, {
             'logout exitoso': (r) => r.status === 302
         });
+        sleep(2);
     });
-    sleep(2);
 
 
 }

@@ -3,7 +3,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 
 const users = new SharedArray('users', function() {
-    return open('users.csv').split('\n').slice(1).filter(line => line.trim()).map(line => {
+    return open('../resources/payloads/users.csv').split('\n').slice(1).filter(line => line.trim()).map(line => {
         const parts = line.split(';');
         return {
             correo: parts[0] ? parts[0].trim() : '',
@@ -14,9 +14,9 @@ const users = new SharedArray('users', function() {
 
 export const options = {
     stages: [
-        { duration: '10m', target: 7 },
-        { duration: '20m', target: 20 },
-        { duration: '8m', target: 3 },
+        { duration: '10s', target: 7 },
+        { duration: '20s', target: 20 },
+        { duration: '8s', target: 3 },
     ],
 };
 
