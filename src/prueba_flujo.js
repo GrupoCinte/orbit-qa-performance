@@ -4,7 +4,7 @@ import { SharedArray } from 'k6/data';
 
 // Usuarios
 const users = new SharedArray('users', function() {
-    return open('../resources/payloads/users.csv').split('\n').slice(1)
+    return open('../data/users.csv').split('\n').slice(1)
         .filter(line => line.trim())
         .map(line => {
             const parts = line.split(';');
@@ -15,9 +15,9 @@ const users = new SharedArray('users', function() {
 
 export const options = {
     stages: [
-        { duration: '10m', target: 7 },
-        { duration: '15m', target: 20 },
-        { duration: '10m', target: 3 }
+        { duration: '10s', target: 7 },
+        { duration: '15s', target: 20 },
+        { duration: '10s', target: 3 }
     ],
 };
 

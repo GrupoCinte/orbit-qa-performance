@@ -7,13 +7,12 @@ una enfocada en validar el proceso de login y otra en ejecutar un flujo funciona
 ## Estructura del proyecto
 
 orbit-qa-performance/
+├── data/  # Datos usados en las pruebas (CSV)
+│     └── users.csv
+│
 ├── src/ # Scripts principales de K6
 │ ├── prueba_flujo.js
 │ └── prueba_orbit.js
-│
-├── resources/ # Archivos adicionales
-│ └── payloads/ # Datos usados en las pruebas (CSV)
-│ └── users.csv
 │
 ├── README.md # Documentación del proyecto
 └── .gitignore
