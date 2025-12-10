@@ -15,9 +15,9 @@ const users = new SharedArray('users', function() {
 
 export const options = {
     stages: [
-        { duration: '10s', target: 7 },
-        { duration: '15s', target: 20 },
-        { duration: '10s', target: 3 }
+        { duration: '10m', target: 7 },
+        { duration: '15m', target: 20 },
+        { duration: '10m', target: 3 }
     ],
 };
 
