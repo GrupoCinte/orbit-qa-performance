@@ -7,11 +7,12 @@ import {
     loadMenu,
     applyFlowFilter,
     editFlow,
-    sleepWithVariance
+    sleepWithVariance,
+    getRandomInt
 } from './utils.js';
 
-// Cargar usuarios desde CSV
-const users = new SharedArray('users', function() {
+
+const users = new SharedArray('users', function () {
     return open('/data/users.csv')
         .split('\n')
         .slice(1)
@@ -23,29 +24,31 @@ const users = new SharedArray('users', function() {
         .filter(u => u.correo && u.password);
 });
 
-// Configuración de la prueba
 export const options = {
     stages: getStages(__ENV.TEST_TYPE || 'loadTest'),
     thresholds: config.thresholds
 };
 
-// Flujo principal
 export default function () {
-    if (!users.length) throw new Error('No hay usuarios en data/users.csv');
+    if (!users.length) {
+        throw new Error('No hay usuarios en data/users.csv');
+    }
 
-    const user = users[Math.floor(Math.random() * users.length)];
+    const user = users[getRandomInt(users.length)];
     let cookies = '';
     let viewState = '';
 
-    group('01_login', function() {
+    group('01_login', function () {
         const loginRes = performLogin(user);
-        if (!loginRes.success) throw new Error('Login fallido');
+        if (!loginRes.success) {
+            throw new Error('Login fallido');
+        }
         cookies = loginRes.cookies;
         viewState = loginRes.viewState;
         sleepWithVariance(config.delays.afterLogin, 20);
     });
 
-    group('02_menu', function() {
+    group('02_menu', function () {
         const menuRes = loadMenu(cookies);
         check(menuRes.success, { 'menú cargado': () => menuRes.success });
         cookies = menuRes.cookies;
@@ -53,7 +56,7 @@ export default function () {
         sleepWithVariance(config.delays.afterMenuLoad, 25);
     });
 
-    group('03_filtro', function() {
+    group('03_filtro', function () {
         const filterRes = applyFlowFilter(cookies, viewState, '87');
         check(filterRes.success, { 'filtro aplicado': () => filterRes.success });
         cookies = filterRes.cookies;
@@ -61,7 +64,7 @@ export default function () {
         sleepWithVariance(config.delays.afterFilter, 25);
     });
 
-    group('04_editar_flujo', function() {
+    group('04_editar_flujo', function () {
         const editRes = editFlow(cookies, viewState, '1');
         check(editRes.success, { 'flujo editado': () => editRes.success });
         cookies = editRes.cookies;
@@ -69,7 +72,7 @@ export default function () {
         sleepWithVariance(config.delays.afterEdit, 25);
     });
 
-    group('05_logout', function() {
+    group('05_logout', function () {
         sleepWithVariance(config.delays.beforeLogout, 20);
         const logoutRes = performLogout(cookies, viewState);
         check(logoutRes, { 'logout exitoso': () => logoutRes });
@@ -78,9 +81,13 @@ export default function () {
 
 // Setup
 export function setup() {
-    console.log(`RUEBA DE RENDIMIENTO - Ambiente: ${config.baseUrl}, Usuarios: ${users.length}, Tipo: ${__ENV.TEST_TYPE || 'loadTest'}`);
+    console.log(
+        `PRUEBA DE RENDIMIENTO - Ambiente: ${config.baseUrl}, ` +
+        `Usuarios: ${users.length}, Tipo: ${__ENV.TEST_TYPE || 'loadTest'}`
+    );
 }
 
+// Teardown
 export function teardown() {
     console.log('PRUEBA COMPLETADA');
 }
