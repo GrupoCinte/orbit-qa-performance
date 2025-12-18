@@ -1,0 +1,63 @@
+name: K6 Load Tests - QA
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  QA_URL: ${{ secrets.QA_URL }}
+  TEST_TYPE: loadTest
+  DOCKER_IMAGE: grafana/k6:latest
+
+jobs:
+  k6-load-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create reports directory
+        run: mkdir -p reports
+
+      - name: Run k6 load tests
+        run: |
+          docker run --rm \
+            -e BASE_URL=${{ env.QA_URL }} \
+            -e TEST_TYPE=${{ env.TEST_TYPE }} \
+            -v ${{ github.workspace }}/src:/scripts \
+            -v ${{ github.workspace }}/data:/data \
+            -v ${{ github.workspace }}/reports:/reports \
+            ${{ env.DOCKER_IMAGE }} \
+            run /scripts/prueba_flujo_mejorada.js \
+            --out json=/reports/results.json
+        continue-on-error: true
+
+      - name: Show test results
+        if: always()
+        run: |
+          echo "K6 LOAD TEST RESULTS - QA"
+          if [ -f reports/results.json ]; then
+            echo "Resultados JSON generados correctamente"
+          else
+            echo "No results available"
+          fi
+
+      - name: Upload k6 reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: k6-qa-load-test-reports
+          path: reports/
+          retention-days: 30
+
+      - name: Workflow status
+        if: always()
+        run: |
+          if [ -f reports/results.json ]; then
+            echo "Pruebas completadas. Revisa los reportes."
+          else
+            echo "Advertencia: No se generaron reportes"
+          fi

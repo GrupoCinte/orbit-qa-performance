@@ -3,7 +3,7 @@ import { check, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
 
 const users = new SharedArray('users', function() {
-    return open('../resources/payloads/users.csv').split('\n').slice(1).filter(line => line.trim()).map(line => {
+    return open('/data/users.csv').split('\n').slice(1).filter(line => line.trim()).map(line => {
         const parts = line.split(';');
         return {
             correo: parts[0] ? parts[0].trim() : '',
