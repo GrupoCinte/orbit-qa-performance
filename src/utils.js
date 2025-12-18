@@ -2,23 +2,46 @@ import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { config } from './config.js';
 
-// Extrae javax.faces.ViewState
+
+export function getRandomInt(max) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] % max;
+}
+
+
+export function getRandomFactor(variance = 30) {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    const r = array[0] / 0xFFFFFFFF; // número entre 0 y 1
+    return 1 + ((r - 0.5) * 2 * variance) / 100;
+}
+
+
+export function sleepWithVariance(baseSeconds = 1, variance = 30) {
+    const factor = getRandomFactor(variance);
+    sleep(baseSeconds * factor);
+}
+
 export function extractViewState(body) {
     const match = body.match(/javax\.faces\.ViewState"[^>]*value="([^"]+)"/);
     return match ? match[1] : null;
 }
 
-// Mezcla cookies anteriores con nuevas
 export function updateCookies(prevCookies, res) {
     const jar = {};
 
-    prevCookies.split(';').forEach(c => {
-        const [name, value] = c.trim().split('=');
-        if (name && value) jar[name] = value;
-    });
+    if (prevCookies) {
+        prevCookies.split(';').forEach(c => {
+            const [name, value] = c.trim().split('=');
+            if (name && value) jar[name] = value;
+        });
+    }
 
-    for (let name in res.cookies) {
-        jar[name] = res.cookies[name][0].value;
+    if (res.cookies) {
+        for (const name in res.cookies) {
+            if (res.cookies[name][0]?.value) jar[name] = res.cookies[name][0].value;
+        }
     }
 
     return Object.entries(jar)
@@ -26,12 +49,10 @@ export function updateCookies(prevCookies, res) {
         .join('; ');
 }
 
-// Detecta redirect AJAX de JSF
 export function isAjaxRedirect(body) {
     return body.includes('<partial-response') && body.includes('<redirect');
 }
 
-// Construye headers base
 export function buildHeaders(cookies, isAjax = false) {
     return {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -40,13 +61,8 @@ export function buildHeaders(cookies, isAjax = false) {
     };
 }
 
-// Sleep con variación humana
-export function sleepWithVariance(baseSeconds = 1, variance = 30) {
-    const factor = 1 + ((Math.random() - 0.5) * 2 * variance) / 100;
-    sleep(baseSeconds * factor);
-}
+// LOGIN / LOGOUT
 
-// LOGIN
 export function performLogin(user) {
     const loginUrl = `${config.baseUrl}${config.appPath}/index.xhtml`;
 
@@ -83,7 +99,6 @@ export function performLogin(user) {
     }
 }
 
-// LOGOUT
 export function performLogout(cookies, viewState = "0") {
     const url = `${config.baseUrl}${config.appPath}/App/Provisiones/Flujo/index.xhtml`;
     const payload = `j_idt49=j_idt49&j_idt49%3Aj_idt50=Cerrar+sesi%C3%B3n&javax.faces.ViewState=${encodeURIComponent(viewState)}`;
@@ -94,12 +109,13 @@ export function performLogout(cookies, viewState = "0") {
         check(res, { 'logout 302': () => ok });
         return ok;
     } catch (err) {
-        console.error(` Error en logout: ${err.message}`);
+        console.error(`Error en logout: ${err.message}`);
         return false;
     }
 }
 
-// CARGA DE MENÚ
+
+// MENÚ
 export function loadMenu(cookies) {
     const url = `${config.baseUrl}${config.appPath}/App/Provisiones/Flujo/`;
 
@@ -115,7 +131,7 @@ export function loadMenu(cookies) {
         return { success: ok, viewState: extractViewState(res.body), cookies: updateCookies(cookies, res) };
 
     } catch (err) {
-        console.error(` Error al cargar menú: ${err.message}`);
+        console.error(`Error al cargar menú: ${err.message}`);
         return { success: false, viewState: null, cookies };
     }
 }
@@ -164,7 +180,7 @@ export function editFlow(cookies, viewState, tipo = "1") {
         return { success: ok, viewState: extractViewState(res.body) || viewState, cookies: updateCookies(cookies, res) };
 
     } catch (err) {
-        console.error(` Error en edición: ${err.message}`);
+        console.error(`Error en edición: ${err.message}`);
         return { success: false, viewState, cookies };
     }
 }
