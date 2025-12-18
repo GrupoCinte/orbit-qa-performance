@@ -16,15 +16,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Clonar el repositorio
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Crear carpeta de reportes
       - name: Create reports directory
         run: mkdir -p reports
 
-      # Ejecutar pruebas de carga con k6 en Docker
       - name: Run k6 load tests
         run: |
           docker run --rm \
@@ -35,22 +32,19 @@ jobs:
             -v ${{ github.workspace }}/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
             run /scripts/prueba_flujo_mejorada.js \
-            --out json=/reports/results.json \
-            --out text=/reports/results.txt
+            --out json=/reports/results.json
         continue-on-error: true
 
-      # Mostrar resumen de resultados en logs
       - name: Show test results
         if: always()
         run: |
           echo "K6 LOAD TEST RESULTS - QA"
-          if [ -f reports/results.txt ]; then
-            cat reports/results.txt
+          if [ -f reports/results.json ]; then
+            echo "Resultados JSON generados correctamente"
           else
             echo "No results available"
           fi
 
-      # Subir reportes como artefactos
       - name: Upload k6 reports
         if: always()
         uses: actions/upload-artifact@v3
@@ -59,11 +53,10 @@ jobs:
           path: reports/
           retention-days: 30
 
-      # Notificación de estado
       - name: Workflow status
         if: always()
         run: |
-          if [ -f reports/results.txt ]; then
+          if [ -f reports/results.json ]; then
             echo "Pruebas completadas. Revisa los reportes."
           else
             echo "Advertencia: No se generaron reportes"
