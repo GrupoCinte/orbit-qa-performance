@@ -10,6 +10,7 @@ import {
     sleepWithVariance,
     getRandomInt
 } from './utils.js';
+import { handleSummary as htmlSummary } from './summary.js';
 
 
 const users = new SharedArray('users', function () {
@@ -91,3 +92,5 @@ export function setup() {
 export function teardown() {
     console.log('PRUEBA COMPLETADA');
 }
+
+export { htmlSummary as handleSummary };

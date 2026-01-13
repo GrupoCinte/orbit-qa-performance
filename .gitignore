@@ -9,9 +9,20 @@ node_modules/
 # Carpeta de pruebas local (tu código temporal o no deseado)
 prueba_k6/
 
+# K6 Reportes generados localmente
+reports/
+*.html
+results*.json
+
 # Logs
 *.log
 
 # Archivos del sistema operativo
 .DS_Store
 Thumbs.db
+
+# Environment
+.env
+.env.local
+*.pem
+

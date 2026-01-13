@@ -25,39 +25,28 @@ jobs:
       - name: Run k6 load tests
         run: |
           docker run --rm \
+            --user root \
             -e BASE_URL=${{ env.QA_URL }} \
             -e TEST_TYPE=${{ env.TEST_TYPE }} \
-            -v ${{ github.workspace }}/src:/scripts \
-            -v ${{ github.workspace }}/data:/data \
-            -v ${{ github.workspace }}/reports:/reports \
+            -v $(pwd)/src:/src \
+            -v $(pwd)/data:/data \
+            -v $(pwd)/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
-            run /scripts/prueba_flujo_mejorada.js \
+            run /src/prueba_flujo_mejorada.js \
+            --summary-export=/reports/summary.json \
             --out json=/reports/results.json
         continue-on-error: true
 
-      - name: Show test results
+      - name: List generated reports
         if: always()
         run: |
-          echo "K6 LOAD TEST RESULTS - QA"
-          if [ -f reports/results.json ]; then
-            echo "Resultados JSON generados correctamente"
-          else
-            echo "No results available"
-          fi
+          echo "Reports generated:"
+          ls -lah reports/
 
       - name: Upload k6 reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k6-qa-load-test-reports
+          name: k6-qa-load-test-reports-${{ github.run_number }}
           path: reports/
           retention-days: 30
-
-      - name: Workflow status
-        if: always()
-        run: |
-          if [ -f reports/results.json ]; then
-            echo "Pruebas completadas. Revisa los reportes."
-          else
-            echo "Advertencia: No se generaron reportes"
-          fi
