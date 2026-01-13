@@ -1,45 +1,148 @@
-Pruebas de Carga con K6: Login y Flujo Completo
+# Pruebas de Carga K6 - Orbit QA Performance
 
-Este repositorio reúne dos pruebas de carga básicas desarrolladas con Grafana K6:
-una enfocada en validar el proceso de login y otra en ejecutar un flujo funcional completo dentro de Orbit.
+Pruebas automatizadas de carga y rendimiento para la aplicación Orbit usando Grafana K6. Incluye ejecución local y mediante GitHub Actions.
 
-Este proyecto proporciona un conjunto completo de scripts de prueba de carga que simulan comportamiento real de usuarios en la aplicación Orbit. Incluye:
+## Estructura del Proyecto
 
 ```
-## Estructura del proyecto
+orbit-qa-performance/
+├── .github/
+│   └── workflows/
+│       └── main.yml          # Pipeline GitHub Actions
 ├── src/
-│   ├── config.js                    # Configuración centralizada
-│   ├── utils.js                     # Funciones reutilizables
-│   ├── prueba_flujo.js              # Prueba original 
-│   ├── prueba_flujo_mejorada.js     # Prueba mejorada 
-│   └── prueba_orbit.js              # Prueba básica login 
-│
+│   ├── config.js                      # Configuración centralizada
+│   ├── utils.js                       # Funciones reutilizables
+│   ├── summary.js                     # Generador de reportes HTML
+│   ├── prueba_flujo.js                # Prueba original
+│   ├── prueba_flujo_mejorada.js       # Prueba principal (recomendada)
+│   └── prueba_orbit.js                # Prueba básica login
 ├── data/
-├── data/  # Datos usados en las pruebas (CSV)
-│     └── users.csv
-└── .gitignore
+│   └── users.csv                      # Credenciales de usuarios
+├── reports/                           # Reportes generados
+│   ├── report-*.html                  # Reportes HTML con timestamp
+│   └── results-*.json                 # Datos JSON raw
+├── run-k6.sh                          # Script para ejecutar   
+└── README.md
 ```
-├── src/ # Scripts principales de K6
-│ ├── prueba_flujo.js
-│ └── prueba_orbit.js
 
-### 1. Requisitos
-- [Grafana K6](https://k6.io/) v0.43.0+
-- La aplicación Orbit corriendo en `http://localhost:8080`
+##  Requisitos
+
+- **K6** v0.43.0+ ([Descargar](https://k6.io/))
+- **Docker** (opcional, para GitHub Actions)
+- Aplicación Orbit corriendo en el ambiente de QA
 - Credenciales válidas en `data/users.csv`
-├── README.md # Documentación del proyecto
 
+## Instalación
+
+1. Clonar el repositorio:
+```bash
+git clone <repository-url>
+cd orbit-qa-performance
 ```
 
-### 3. Ejecutar Prueba Simple
+2. Instalar K6 (si no lo tienes):
+   - **Windows**: Usar Chocolatey: `choco install k6`
+   - **Mac**: `brew install k6`
+   - **Linux**: Descargar desde [k6.io](https://k6.io/)
+
+3. Configurar credenciales en `data/users.csv`
+
+## Ejecución Local
+
+### Windows
 ```powershell
+.\run-k6.sh
+```
+
+### Ejecución manual
+```bash
+# Prueba mejorada 
 k6 run src/prueba_flujo_mejorada.js
 ```
-Cómo ejecutar una prueba
 
-Si quieres ejecutar la prueba básica:
+## GitHub Actions - CI/CD
+
+El proyecto incluye un pipeline automático que:
+
+1. Se ejecuta al hacer push a `main`
+2. Ejecuta K6 en un contenedor Docker
+3. Genera reportes HTML con timestamp
+4. Limpia reportes antiguos (mantiene los últimos 5)
+5. Sube artefactos a GitHub
+
+### Configuración de Secretos
+
+En **Settings → Secrets and variables → Actions**, agregar:
+
 ```
-k6 run src/prueba_flujo.js
+QA_URL = agregar la url del ambiente QA
 ```
 
-Asegúrate de tener instalado K6.
+
+## Reportes Generados
+
+Cada ejecución genera automáticamente:
+
+- **report-{escenarios}-{timestamp}.html** - Reporte visual interactivo
+- **results-{timestamp}.json** - Datos raw en JSON
+
+**Ejemplo**: `report-01_login-02_menu-03_filtro-2025-01-06-140530.html`
+
+El reporte incluye:
+- Escenarios ejecutados
+- Configuración (VUs, duración)
+- Métricas estándar (Response Time, Error Rate, etc.)
+- Checks personalizados
+- Thresholds
+- Datos raw JSON
+
+## 🔧 Configuración de Pruebas
+
+### Tipos de Prueba
+
+En `src/config.js`, define los stages:
+
+```javascript
+const stages = {
+  loadTest: [
+    { duration: '5m', target: 10 },    // Ramp-up
+    { duration: '10m', target: 10 },   // Stay
+    { duration: '5m', target: 0 }      // Ramp-down
+  ],
+  stressTest: [...],
+  spikeTest: [...]
+};
+```
+
+##  Métricas Principales
+
+- **http_reqs** - Total de requests
+- **http_req_duration** - Tiempo de respuesta
+- **http_req_failed** - Requests fallidos
+- **checks** - Validaciones personalizadas
+- **iterations** - Iteraciones completadas
+- **vus** - Virtual users activos
+
+## Troubleshooting
+
+### Error: "No users found in CSV"
+- Verificar que `data/users.csv` existe y tiene formato correcto
+- Formato: `correo;password`
+
+### Error: "Connection refused"
+- Verificar que la URL del ambiente QA es correcta
+- Asegurar que `BASE_URL` está configurado
+
+### Reportes no se generan
+- Ejecutar manualmente para ver errores: `k6 run src/prueba_flujo_mejorada.js -v`
+- Verificar permisos en la carpeta `./reports`
+
+##  Archivos Clave
+
+| Archivo                      | Propósito |
+|------------------------------|-----------|
+| `config.js`                  | Configuración centralizada, stages, thresholds |
+| `utils.js`                   | Funciones HTTP, login, manejo de cookies |
+| `summary.js`                 | Generador automático de reportes HTML |
+| `prueba_flujo_mejorada.js`   | Script principal con flujo completo |
+| `.github/workflows/main.yml` | Pipeline GitHub Actions |
