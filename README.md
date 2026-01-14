@@ -13,8 +13,8 @@ orbit-qa-performance/
 │   ├── config.js                      # Configuración centralizada
 │   ├── utils.js                       # Funciones reutilizables
 │   ├── summary.js                     # Generador de reportes HTML
-│   ├── prueba_flujo.js                # Prueba original
-│   ├── prueba_flujo_mejorada.js       # Prueba principal (recomendada)
+│   ├── prueba_flujo.js                # Prueba principal (recomendada)
+│   ├── prueba_flujo_mejorada.js       # Prueba original
 │   └── prueba_orbit.js                # Prueba básica login
 ├── data/
 │   └── users.csv                      # Credenciales de usuarios
@@ -57,7 +57,7 @@ cd orbit-qa-performance
 ### Ejecución manual
 ```bash
 # Prueba mejorada 
-k6 run src/prueba_flujo_mejorada.js
+k6 run src/prueba_flujo.js
 ```
 
 ## GitHub Actions - CI/CD
@@ -144,5 +144,5 @@ const stages = {
 | `config.js`                  | Configuración centralizada, stages, thresholds |
 | `utils.js`                   | Funciones HTTP, login, manejo de cookies |
 | `summary.js`                 | Generador automático de reportes HTML |
-| `prueba_flujo_mejorada.js`   | Script principal con flujo completo |
+| `prueba_flujo.js`   | Script principal con flujo completo |
 | `.github/workflows/main.yml` | Pipeline GitHub Actions |
