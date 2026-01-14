@@ -26,10 +26,9 @@ export function sleepWithVariance(baseSeconds = 1, variance = 30) {
 }
 
 export function extractViewState(body) {
-    const match = body.match(/ViewState"\s+[^>]*value="([^"]+)"/);
+    const match = body.match(/ViewState"\s+id[^>]*?value="([^"]+)"/);
     return match ? match[1] : null;
 }
-
 
 export function mergeCookies(res, currentCookies) {
     let cookieMap = {};
