@@ -1,102 +1,135 @@
-import http from 'k6/http';
-import { check, sleep, group } from 'k6';
+import { check, group, sleep } from 'k6';
 import { SharedArray } from 'k6/data';
+import { config, getStages } from './config.js';
+import {
+    performLogin,
+    performLogout,
+    loadMenu,
+    applyFilter,
+    verCruce,
+    extractViewState,
+    mergeCookies,
+    getRandomInt
+} from './utils.js';
+import { handleSummary as htmlSummary } from './summary.js';
 
-// Usuarios
-const users = new SharedArray('users', function() {
-    return open('../data/users.csv').split('\n').slice(1)
+const users = new SharedArray('users', function () {
+    return open('/data/users.csv')
+        .split('\n')
+        .slice(1) // Omitir encabezado
         .filter(line => line.trim())
         .map(line => {
             const parts = line.split(';');
-            return { correo: parts[0]?.trim(), password: parts[1]?.trim() };
+            return { 
+                correo: parts[0]?.trim(), 
+                password: parts[1]?.trim() 
+            };
         })
         .filter(u => u.correo && u.password);
 });
 
 export const options = {
-    stages: [
-        { duration: '10m', target: 7 },
-        { duration: '15m', target: 20 },
-        { duration: '10m', target: 3 }
-    ],
+    stages: getStages(__ENV.TEST_TYPE || 'loadTest'),
+    thresholds: config.thresholds
 };
 
 export default function () {
-    if (users.length === 0) throw new Error('No users in users.csv');
+    // Validar que existen usuarios
+    if (users.length === 0) {
+        throw new Error('No users en users.csv');
+    }
 
-    const user = users[Math.floor(Math.random() * users.length)];
+    const user = users[getRandomInt(users.length)];
     let cookies = '';
+    let viewState = '';
 
-    // Login
-    group('login', function() {
-        const loginUrl = 'http://localhost:8080/Integracion-areas/index.xhtml';
-        const getRes = http.get(loginUrl);
-        const viewStateMatch = getRes.body.match(/ViewState"\s+.*?value="([^"]+)"/);
-        if (!viewStateMatch) return;
-        const viewState = viewStateMatch[1];
+    // GRUPO 1: LOGIN
 
-        cookies = Object.keys(getRes.cookies)
-            .map(n => `${n}=${getRes.cookies[n][0].value}`).join('; ');
-
-        const payload = `j_idt5=j_idt5&j_idt5:correo=${encodeURIComponent(user.correo)}&j_idt5:password=${encodeURIComponent(user.password)}&j_idt5:button=Ingresar&javax.faces.ViewState=${encodeURIComponent(viewState)}`;
-
-        const postRes = http.post(loginUrl, payload, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': cookies },
-            redirects: 0
-        });
-        check(postRes, { 'login 302': r => r.status === 302 });
-        sleep(1);
+    group('login', function () {
+        const loginRes = performLogin(user);
+        
+        if (!loginRes.success) {
+            console.error(`Login fallido para usuario: ${user.correo}`);
+            return; // Abortar iteración si login falla
+        }
+        
+        cookies = loginRes.cookies;
+        viewState = loginRes.viewState;
+        sleep(config.delays.afterLogin);
     });
 
-    // Menu
-    group('menu', function() {
-        const menuUrl = 'http://localhost:8080/Integracion-areas/App/Provisiones/Flujo/';
-        const menuRes = http.get(menuUrl, { headers: { 'Cookie': cookies } });
-        check(menuRes, { 'menu cargado (200)': r => r.status === 200 });
-        sleep(2);
+    // Si el login falló, no continuar con el resto del flujo
+    if (!cookies) return;
+
+
+    // GRUPO 2: MENÚ
+    group('menu', function () {
+        const menuRes = loadMenu(cookies);
+        
+        if (!menuRes.success) {
+            console.error(`Error cargando menú para usuario: ${user.correo}`);
+            return;
+        }
+        
+        cookies = menuRes.cookies;
+        viewState = menuRes.viewState;
+        sleep(config.delays.afterMenuLoad);
     });
 
-    // Filtro AJAX
-    group('filtro', function() {
-        const postUrl = 'http://localhost:8080/Integracion-areas/App/Provisiones/Flujo/index.xhtml';
-        const payload = 'javax.faces.partial.ajax=true&javax.faces.source=frmConsultor%3AflujoTable&javax.faces.partial.execute=frmConsultor%3AflujoTable&javax.faces.partial.render=frmConsultor%3AflujoTable&frmConsultor%3AflujoTable=frmConsultor%3AflujoTable&frmConsultor%3AflujoTable_filtering=true&frmConsultor%3AflujoTable_encodeFeature=true&frmConsultor=frmConsultor&frmConsultor%3AflujoTable_rppDD=15&frmConsultor%3AflujoTable%3AclienteFilter=87&frmConsultor%3AflujoTable_scrollState=0%2C0&javax.faces.ViewState=115264589307576193%3A3581904077963643541';
-        const postRes = http.post(postUrl, payload, {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': cookies, 'Faces-Request': 'partial/ajax' }
-        });
-        check(postRes, { 'el filtro es exitoso (200)': r => r.status === 200 });
-        sleep(2);
-    });
-    //editar flujo
-    group('editar_flujo', function() {
-            const postUrl = 'http://localhost:8080/Integracion-areas/App/Provisiones/Flujo/index.xhtml';
-            const payload = 'javax.faces.partial.ajax=true&javax.faces.source=frmAfrm%3Aj_idt97&javax.faces.partial.execute=%40all&javax.faces.partial.render=frmAfrm+frmConsultor&frmAfrm%3Aj_idt97=frmAfrm%3Aj_idt97&frmAfrm=frmAfrm&frmAfrm%3AtipoFujo=1&javax.faces.ViewState=721588292342541437%3A973450968289756064';
-            const postRes = http.post(postUrl, payload, {
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Cookie': cookies, 'Faces-Request': 'partial/ajax' }
-                    });
+    // Si el menú falló, no continuar
+    if (!viewState) return;
 
-            check(postRes, {
-                'status 200': r => r.status === 200,
-            });
-            sleep(2);
-        });
-
-    //cerrar sesion
-    group('logout', function() {
-        const logoutUrl = 'http://localhost:8080/Integracion-areas/App/Provisiones/Flujo/index.xhtml';
-        const payload ='j_idt49=j_idt49&j_idt49%3Aj_idt50=Cerrar+sesi%C3%B3n&javax.faces.ViewState=721588292342541437%3A973450968289756064';
-
-        const logoutRes = http.post(logoutUrl, payload, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                'Cookie': cookies,
-            },
-        });
-
-        check(logoutRes, {
-            'logout exitoso': (r) => r.status === 302
-        });
-        sleep(2);
+    // GRUPO 3: FILTRO AJAX
+    group('filtro', function () {
+        const filterRes = applyFilter(cookies, viewState);
+        
+        if (!filterRes.success) {
+            console.error(`Error aplicando filtro para usuario: ${user.correo}`);
+            return;
+        }
+        
+        cookies = filterRes.cookies;
+        // viewState se mantiene igual después del filtro
+        sleep(config.delays.afterFilter);
     });
 
+    // GRUPO 4: VER CRUCE (EDITAR FLUJO)
+    group('ver_cruce', function () {
+        const editRes = verCruce(cookies, viewState);
+        
+        if (!editRes.success) {
+            console.error(`Error editando flujo para usuario: ${user.correo}`);
+            return;
+        }
+        
+        cookies = editRes.cookies;
+        // viewState se mantiene igual
+        sleep(config.delays.afterEditFlow);
+    });
 
+    // GRUPO 5: LOGOUT
+    group('logout', function () {
+        const logoutSuccess = performLogout(cookies, viewState);
+        
+        if (!logoutSuccess) {
+            console.error(`Error en logout para usuario: ${user.correo}`);
+        }
+        
+        sleep(config.delays.afterLogout);
+    });
 }
+
+// Setup
+export function setup() {
+    console.log(
+        `PRUEBA DE RENDIMIENTO - Ambiente: ${config.baseUrl}, ` +
+        `Usuarios: ${users.length}, Tipo: ${__ENV.TEST_TYPE || 'loadTest'}`
+    );
+}
+
+// Teardown
+export function teardown() {
+    console.log('PRUEBA COMPLETADA');
+}
+
+export { htmlSummary as handleSummary };

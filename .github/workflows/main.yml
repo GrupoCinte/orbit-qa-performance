@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 env:
-  QA_URL: ${{ secrets.QA_URL }}
+  QA_URL: ${{ vars.QA_URL }}
   TEST_TYPE: loadTest
   DOCKER_IMAGE: grafana/k6:latest
 
@@ -32,9 +32,8 @@ jobs:
             -v $(pwd)/data:/data \
             -v $(pwd)/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
-            run /src/prueba_flujo_mejorada.js \
-            --summary-export=/reports/summary.json \
-            --out json=/reports/results.json
+            run /src/prueba_flujo.js \
+            --summary-export=/reports/summary.json
         continue-on-error: true
 
       - name: List generated reports
