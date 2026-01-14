@@ -1,6 +1,6 @@
 export const config = {
     // URL base de la aplicación
-    baseUrl: __ENV.BASE_URL || 'http://node206897-orbitcinte.w1-us.cloudjiffy.net:8080/ORBIT',
+    baseUrl: __ENV.BASE_URL || '',
     appPath: '',
 
     // Endpoints (rutas de la aplicación)
