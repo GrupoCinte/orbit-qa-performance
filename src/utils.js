@@ -33,7 +33,6 @@ export function extractViewState(body) {
 export function mergeCookies(res, currentCookies) {
     let cookieMap = {};
 
-    // Parsear cookies existentes
     if (currentCookies) {
         currentCookies.split('; ').forEach(cookie => {
             const [name, value] = cookie.split('=');
@@ -41,17 +40,14 @@ export function mergeCookies(res, currentCookies) {
         });
     }
 
-    // Agregar/actualizar con nuevas cookies
     Object.keys(res.cookies).forEach(name => {
         cookieMap[name] = res.cookies[name][0].value;
     });
 
-    // Reconstruir string de cookies
     return Object.keys(cookieMap)
         .map(name => `${name}=${cookieMap[name]}`)
         .join('; ');
 }
-
 
 export function validateAjaxResponse(body) {
     return body && body.includes('<?xml') && body.length > 50;
@@ -66,6 +62,77 @@ export function buildHeaders(cookies, isAjax = false) {
         'Cookie': cookies,
         ...(isAjax && { 'Faces-Request': 'partial/ajax' })
     };
+}
+
+/**
+ * Construye los parámetros comunes de la tabla de facturación
+ * @param {string} clienteFilter - Filtro de cliente
+ * @returns {string} Parámetros URL encoded
+ */
+function buildTableParams(clienteFilter = null) {
+    const cliente = clienteFilter || config.defaults.clienteFilter;
+    return (
+        `${config.jsfComponents.tabla}=${config.jsfComponents.tabla}&` +
+        `${config.jsfComponents.tablaCliFac}%3AglobalFilter=&` +
+        `${config.jsfComponents.tablaCliFac}_rppDD=${config.defaults.rowsPerPage}&` +
+        `${config.jsfComponents.tablaCliFac}%3AclienteFilter=${cliente}&` +
+        `${config.jsfComponents.tablaCliFac}%3AnumFilter=&` +
+        `${config.jsfComponents.tablaCliFac}%3AfiltroOc=&` +
+        `${config.jsfComponents.tablaCliFac}%3AfiltroAnio=&` +
+        `${config.jsfComponents.tablaCliFac}%3AestadoFilter=&` +
+        `${config.jsfComponents.tablaCliFac}_scrollState=0%2C0&`
+    );
+}
+
+/**
+ * Maneja errores y devuelve respuesta estandarizada
+ */
+function handleError(err, context, failureResponse) {
+    console.error(`Error en ${context}: ${err.message}`);
+    return failureResponse;
+}
+
+/**
+ * Valida respuesta y devuelve resultado estandarizado
+ */
+function validateResponse(ok, errorMsg, state) {
+    if (!ok) {
+        console.error(errorMsg);
+        return { success: false, ...state };
+    }
+    return null;
+}
+
+function executeAjaxRequest(url, payload, cookies, viewState, checks, context) {
+    try {
+        const postRes = http.post(url, payload, {
+            headers: buildHeaders(cookies, true),
+            timeout: `${config.timeouts.http}ms`
+        });
+
+        const ok = check(postRes, checks);
+
+        const validationError = validateResponse(
+            ok,
+            `POST ${context} falló`,
+            { viewState, cookies }
+        );
+        if (validationError) return validationError;
+
+        if (!validateAjaxResponse(postRes.body)) {
+            console.error(`Respuesta AJAX ${context} inválida`);
+            return { success: false, viewState, cookies };
+        }
+
+        return {
+            success: true,
+            viewState: viewState,
+            cookies: mergeCookies(postRes, cookies)
+        };
+
+    } catch (err) {
+        return handleError(err, context, { success: false, viewState, cookies });
+    }
 }
 
 export function performLogin(user) {
@@ -120,8 +187,11 @@ export function performLogin(user) {
         return { success: true, cookies, viewState };
 
     } catch (err) {
-        console.error(`Error en login [${user.correo}]: ${err.message}`);
-        return { success: false, cookies: '', viewState: '' };
+        return handleError(err, `login [${user.correo}]`, {
+            success: false,
+            cookies: '',
+            viewState: ''
+        });
     }
 }
 
@@ -133,7 +203,7 @@ export function performLogin(user) {
  */
 export function performLogout(cookies, viewState) {
     const logoutUrl = getUrl('logout');
-    
+
     const payload =
         `${config.jsfComponents.logoutForm}=${config.jsfComponents.logoutForm}&` +
         `${config.jsfComponents.logoutForm}%3Aj_idt44=${encodeURIComponent(config.jsfComponents.logoutButton)}&` +
@@ -158,7 +228,6 @@ export function performLogout(cookies, viewState) {
     }
 }
 
-
 export function loadMenu(cookies) {
     const menuUrl = getUrl('menu');
 
@@ -173,10 +242,12 @@ export function loadMenu(cookies) {
             'menu contiene tabla': r => r.body.includes(config.jsfComponents.tabla)
         });
 
-        if (!ok) {
-            console.error('GET menu falló');
-            return { success: false, viewState: null, cookies };
-        }
+        const validationError = validateResponse(
+            ok,
+            'GET menu falló',
+            { viewState: null, cookies }
+        );
+        if (validationError) return validationError;
 
         const viewState = extractViewState(menuRes.body);
         if (!viewState) {
@@ -191,8 +262,11 @@ export function loadMenu(cookies) {
         };
 
     } catch (err) {
-        console.error(`Error al cargar menú: ${err.message}`);
-        return { success: false, viewState: null, cookies };
+        return handleError(err, 'cargar menú', {
+            success: false,
+            viewState: null,
+            cookies
+        });
     }
 }
 
@@ -203,7 +277,7 @@ export function applyFilter(cookies, viewState, cliente = null) {
     const clienteFilter = cliente || config.defaults.clienteFilter;
     const filterUrl = getUrl('filtro');
 
-    const payload = 
+    const payload =
         `javax.faces.partial.ajax=true&` +
         `javax.faces.source=${config.jsfComponents.tablaCliFac}&` +
         `javax.faces.partial.execute=${config.jsfComponents.tablaCliFac}&` +
@@ -211,48 +285,20 @@ export function applyFilter(cookies, viewState, cliente = null) {
         `${config.jsfComponents.tablaCliFac}=${config.jsfComponents.tablaCliFac}&` +
         `${config.jsfComponents.tablaCliFac}_filtering=true&` +
         `${config.jsfComponents.tablaCliFac}_encodeFeature=true&` +
-        `${config.jsfComponents.tabla}=${config.jsfComponents.tabla}&` +
-        `${config.jsfComponents.tablaCliFac}%3AglobalFilter=&` +
-        `${config.jsfComponents.tablaCliFac}_rppDD=${config.defaults.rowsPerPage}&` +
-        `${config.jsfComponents.tablaCliFac}%3AclienteFilter=${clienteFilter}&` +
-        `${config.jsfComponents.tablaCliFac}%3AnumFilter=&` +
-        `${config.jsfComponents.tablaCliFac}%3AfiltroOc=&` +
-        `${config.jsfComponents.tablaCliFac}%3AfiltroAnio=&` +
-        `${config.jsfComponents.tablaCliFac}%3AestadoFilter=&` +
-        `${config.jsfComponents.tablaCliFac}_scrollState=0%2C0&` +
+        buildTableParams(clienteFilter) +
         `javax.faces.ViewState=${encodeURIComponent(viewState)}`;
 
-    try {
-        const postRes = http.post(filterUrl, payload, {
-            headers: buildHeaders(cookies, true),
-            timeout: `${config.timeouts.http}ms`
-        });
-
-        const ok = check(postRes, {
+    return executeAjaxRequest(
+        filterUrl,
+        payload,
+        cookies,
+        viewState,
+        {
             'POST filtro 200': r => r.status === 200,
             'respuesta AJAX válida': r => validateAjaxResponse(r.body)
-        });
-
-        if (!ok) {
-            console.error('POST filtro falló');
-            return { success: false, viewState, cookies };
-        }
-
-        if (!validateAjaxResponse(postRes.body)) {
-            console.error('Respuesta AJAX filtro inválida');
-            return { success: false, viewState, cookies };
-        }
-
-        return {
-            success: true,
-            viewState: viewState,
-            cookies: mergeCookies(postRes, cookies)
-        };
-
-    } catch (err) {
-        console.error(`Error en filtro: ${err.message}`);
-        return { success: false, viewState, cookies };
-    }
+        },
+        'filtro'
+    );
 }
 
 /**
@@ -261,52 +307,24 @@ export function applyFilter(cookies, viewState, cliente = null) {
 export function verCruce(cookies, viewState) {
     const editUrl = getUrl('vercruce');
 
-    const payload = 
+    const payload =
         `javax.faces.partial.ajax=true&` +
         `javax.faces.source=${config.jsfComponents.verCrucesBoton}&` +
         `javax.faces.partial.execute=%40all&` +
         `javax.faces.partial.render=${config.jsfComponents.frmVerCruces}&` +
         `${config.jsfComponents.verCrucesBoton}=${config.jsfComponents.verCrucesBoton}&` +
-        `${config.jsfComponents.tabla}=${config.jsfComponents.tabla}&` +
-        `${config.jsfComponents.tablaCliFac}%3AglobalFilter=&` +
-        `${config.jsfComponents.tablaCliFac}_rppDD=${config.defaults.rowsPerPage}&` +
-        `${config.jsfComponents.tablaCliFac}%3AclienteFilter=${config.defaults.clienteFilter}&` +
-        `${config.jsfComponents.tablaCliFac}%3AnumFilter=&` +
-        `${config.jsfComponents.tablaCliFac}%3AfiltroOc=&` +
-        `${config.jsfComponents.tablaCliFac}%3AfiltroAnio=&` +
-        `${config.jsfComponents.tablaCliFac}%3AestadoFilter=&` +
-        `${config.jsfComponents.tablaCliFac}_scrollState=0%2C0&` +
+        buildTableParams() +
         `javax.faces.ViewState=${encodeURIComponent(viewState)}`;
 
-    try {
-        const postRes = http.post(editUrl, payload, {
-            headers: buildHeaders(cookies, true),
-            timeout: `${config.timeouts.http}ms`
-        });
-
-        const ok = check(postRes, {
+    return executeAjaxRequest(
+        editUrl,
+        payload,
+        cookies,
+        viewState,
+        {
             'POST ver cruce 200': r => r.status === 200,
             'respuesta contiene datos': r => validateAjaxResponse(r.body)
-        });
-
-        if (!ok) {
-            console.error('POST ver cruce falló');
-            return { success: false, viewState, cookies };
-        }
-
-        if (!validateAjaxResponse(postRes.body)) {
-            console.error('Respuesta AJAX  inválida');
-            return { success: false, viewState, cookies };
-        }
-
-        return {
-            success: true,
-            viewState: viewState,
-            cookies: mergeCookies(postRes, cookies)
-        };
-
-    } catch (err) {
-        console.error(`Error en ver cruce: ${err.message}`);
-        return { success: false, viewState, cookies };
-    }
+        },
+        'ver cruce'
+    );
 }
