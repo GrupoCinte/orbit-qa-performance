@@ -19,8 +19,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create reports directory
-        run: mkdir -p reports
+      - name: Create reports directory with permissions
+        run: |
+          mkdir -p reports
+          chmod 777 reports
 
       - name: Run k6 load tests
         run: |
@@ -32,9 +34,7 @@ jobs:
             -v $(pwd)/data:/data \
             -v $(pwd)/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
-            run /src/prueba_flujo.js \
-            --summary-export=/reports/summary.json
-        continue-on-error: true
+            sh -c "mkdir -p /reports && k6 run /src/prueba_flujo.js"
 
       - name: List generated reports
         if: always()

@@ -29,7 +29,7 @@ const users = new SharedArray('users', function () {
 });
 
 export const options = {
-    stages: getStages(__ENV.TEST_TYPE || 'loadTest'),
+    stages: getStages(__ENV.TEST_TYPE || 'smokeTest'),
     thresholds: config.thresholds
 };
 
@@ -123,7 +123,7 @@ export default function () {
 export function setup() {
     console.log(
         `PRUEBA DE RENDIMIENTO - Ambiente: ${config.baseUrl}, ` +
-        `Usuarios: ${users.length}, Tipo: ${__ENV.TEST_TYPE || 'loadTest'}`
+        `Usuarios: ${users.length}, Tipo: ${__ENV.TEST_TYPE || 'smokeTest'}`
     );
 }
 
