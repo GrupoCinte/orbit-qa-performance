@@ -22,19 +22,19 @@ jobs:
       - name: Create reports directory with permissions
         run: |
           mkdir -p reports
-          chmod 777 reports
+          chmod 770 reports
 
       - name: Run k6 load tests
         run: |
           docker run --rm \
-            --user root \
             -e BASE_URL=${{ env.QA_URL }} \
             -e TEST_TYPE=${{ env.TEST_TYPE }} \
-            -v $(pwd)/src:/src \
-            -v $(pwd)/data:/data \
-            -v $(pwd)/reports:/reports \
+            -v ${{ github.workspace }}/src:/src \
+            -v ${{ github.workspace }}/data:/data \
+            -v ${{ github.workspace }}/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
-            sh -c "mkdir -p /reports && k6 run /src/prueba_flujo.js"
+            run /src/prueba_flujo.js \
+            --summary-export=/reports/summary.json
 
       - name: List generated reports
         if: always()
