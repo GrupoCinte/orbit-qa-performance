@@ -23,7 +23,6 @@ jobs:
       - name: Run k6 load tests
         run: |
           docker run --rm \
-            --user root \
             -e BASE_URL=${{ env.QA_URL }} \
             -e TEST_TYPE=${{ env.TEST_TYPE }} \
             -v ${{ github.workspace }}/src:/src \
