@@ -19,14 +19,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Create reports directory with permissions
-        run: |
-          mkdir -p reports
-          chmod 770 reports
 
       - name: Run k6 load tests
         run: |
           docker run --rm \
+            --user root \
             -e BASE_URL=${{ env.QA_URL }} \
             -e TEST_TYPE=${{ env.TEST_TYPE }} \
             -v ${{ github.workspace }}/src:/src \
@@ -34,7 +31,7 @@ jobs:
             -v ${{ github.workspace }}/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
             run /src/prueba_flujo.js \
-            --summary-export=/reports/summary.json
+            
 
       - name: List generated reports
         if: always()

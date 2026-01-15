@@ -15,7 +15,7 @@ export function handleSummary(data) {
 
     try {
         const htmlContent = generateGraphicalHTML(data);
-        const filename = `reports/report-${timestamp}.html`;
+        const filename = `/reports/report-${timestamp}.html`;
 
         return {
             [filename]: htmlContent,

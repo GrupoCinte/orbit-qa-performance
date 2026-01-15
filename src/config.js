@@ -40,9 +40,9 @@ export const config = {
             { duration: '1m', target: 1 }
         ],
         loadTest: [
-            { duration: '10m', target: 7 },
-            { duration: '15m', target: 20 },
-            { duration: '10m', target: 3 }
+            { duration: '5m', target: 7 },
+            { duration: '10m', target: 20 },
+            { duration: '2m', target: 3 }
         ],
         stressTest: [
             { duration: '2m', target: 10 },
