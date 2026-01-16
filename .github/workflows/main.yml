@@ -19,19 +19,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Prepare reports directory
+        run: |
+          mkdir -p reports
+          chmod 777 reports
 
       - name: Run k6 load tests
         run: |
           docker run --rm \
-            --user root \
+            --user $(id -u):$(id -g) \
             -e BASE_URL=${{ env.QA_URL }} \
             -e TEST_TYPE=${{ env.TEST_TYPE }} \
             -v ${{ github.workspace }}/src:/src \
             -v ${{ github.workspace }}/data:/data \
             -v ${{ github.workspace }}/reports:/reports \
             ${{ env.DOCKER_IMAGE }} \
-            run /src/prueba_flujo.js \
-            
+            run /src/prueba_flujo.js
 
       - name: List generated reports
         if: always()
