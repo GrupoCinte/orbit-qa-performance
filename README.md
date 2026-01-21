@@ -138,7 +138,6 @@ const stages = {
 - Verificar permisos en la carpeta `./reports`
 
 ##  Archivos Clave
-
 | Archivo                      | Propósito |
 |------------------------------|-----------|
 | `config.js`                  | Configuración centralizada, stages, thresholds |
